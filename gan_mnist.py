@@ -19,7 +19,7 @@ import tflib.save_images
 import tflib.mnist
 import tflib.plot
 
-MODE = 'wgan-gp' # dcgan, wgan, or wgan-gp
+MODE = 'wgan-gp' # dcgan, wgan, or wgan-gp, bcgan
 DIM = 64 # Model dimensionality
 BATCH_SIZE = 50 # Batch size
 CRITIC_ITERS = 5 # For WGAN and WGAN-GP, number of critic iters per gen iter
@@ -186,6 +186,30 @@ elif MODE == 'dcgan':
     ).minimize(disc_cost, var_list=disc_params)
 
     clip_disc_weights = None
+
+# Battacharrya GAN
+elif MODE == 'bcgan':
+    gen_cost = -tf.reduce_mean(disc_fake)
+    disc_cost = tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)
+
+    gen_train_op = tf.train.RMSPropOptimizer(
+        learning_rate=5e-5
+    ).minimize(gen_cost, var_list=gen_params)
+    disc_train_op = tf.train.RMSPropOptimizer(
+        learning_rate=5e-5
+    ).minimize(disc_cost, var_list=disc_params)
+
+    clip_ops = []
+    for var in lib.params_with_name('Discriminator'):
+        clip_bounds = [-.01, .01]
+        clip_ops.append(
+            tf.assign(
+                var, 
+                tf.clip_by_value(var, clip_bounds[0], clip_bounds[1])
+            )
+        )
+    clip_disc_weights = tf.group(*clip_ops)
+
 
 # For saving samples
 fixed_noise = tf.constant(np.random.normal(size=(128, 128)).astype('float32'))
